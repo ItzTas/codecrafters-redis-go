@@ -71,7 +71,15 @@ func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn) {
 
 		args := r.getArgs()
 
-		toWir := command(args)
+		toWir, err := command(args)
+		if err != nil {
+			err := respondWithError(conn, err.Error())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			continue
+		}
 
 		err = respondToClient(conn, toWir)
 		if err != nil {

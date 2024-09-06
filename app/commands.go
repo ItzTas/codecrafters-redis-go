@@ -1,6 +1,10 @@
 package main
 
-type commandType func([]*RESP) []*RESP
+import "errors"
+
+var invalidArgsNum = errors.New("invalid number of arguments")
+
+type commandType func([]*RESP) ([]*RESP, error)
 
 func getCommands() map[string]commandType {
 	return map[string]commandType{
@@ -9,7 +13,7 @@ func getCommands() map[string]commandType {
 	}
 }
 
-func pingCommand(_ []*RESP) []*RESP {
+func pingCommand(_ []*RESP) ([]*RESP, error) {
 	data := []byte("PONG")
 	return []*RESP{
 		{
@@ -17,11 +21,15 @@ func pingCommand(_ []*RESP) []*RESP {
 			data:  data,
 			count: len(data),
 		},
-	}
+	}, nil
 }
 
-func echoCommand(args []*RESP) []*RESP {
+func echoCommand(args []*RESP) ([]*RESP, error) {
+	if len(args) != 1 {
+		return []*RESP{}, invalidArgsNum
+	}
+
 	return []*RESP{
 		args[0],
-	}
+	}, nil
 }
