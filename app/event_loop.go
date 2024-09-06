@@ -49,7 +49,7 @@ func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn) {
 
 		r := NewReader(m)
 
-		err := r.readResp()
+		_, err := r.readResp()
 		if err != nil {
 			fmt.Println(err)
 			return

@@ -11,8 +11,8 @@ import (
 type simbleType rune
 
 var (
-	invalidType = errors.New("Invalid input type")
-	invalidResp = errors.New("Invalid resp format")
+	invalidType = errors.New("invalid input type")
+	invalidResp = errors.New("invalid resp format")
 )
 
 const (
@@ -29,12 +29,10 @@ type Reader struct {
 }
 
 func NewReader(payload []byte) *Reader {
-	r := Reader{
+	return &Reader{
 		r:     bytes.NewReader(payload),
 		resps: []*RESP{},
 	}
-
-	return &r
 }
 
 type RESP struct {
@@ -45,11 +43,34 @@ type RESP struct {
 }
 
 func (r *Reader) getCommand() string {
-	return string(r.resps[0].data)
+	if len(r.resps[0].array) == 0 {
+		return ""
+	}
+
+	return string(r.resps[0].array[0].data)
+}
+
+func (r *Reader) PrintResps() {
+	for i, resp := range r.resps {
+		fmt.Printf("RESP #%d:\n", i+1)
+		fmt.Printf("  Type: %c\n", resp.st)
+		fmt.Printf("  Data: %s\n", string(resp.data))
+
+		if resp.st == Array {
+			fmt.Printf("  Array elements: %d\n", resp.count)
+			for j, item := range resp.array {
+				fmt.Printf("    Element #%d: %v\n", j+1, *item)
+			}
+		} else {
+			fmt.Printf("  Count: %d\n", resp.count)
+		}
+
+		fmt.Printf("  Full RESP object: %+v\n", resp)
+	}
 }
 
 func (r *Reader) getArgs() []*RESP {
-	return r.resps[1:]
+	return r.resps[0].array[1:]
 }
 
 func (r *Reader) readLine() ([]byte, error) {
@@ -60,17 +81,17 @@ func (r *Reader) readLine() ([]byte, error) {
 			if err == io.EOF && len(bytes) > 0 {
 				return bytes, nil
 			}
-			return []byte{}, err
+			return nil, err
 		}
 
 		if b == '\r' {
 			b, err := r.r.ReadByte()
 			if err != nil {
-				return []byte{}, err
+				return nil, err
 			}
 
 			if b != '\n' {
-				return []byte{}, invalidResp
+				return nil, invalidResp
 			}
 
 			return bytes, nil
@@ -80,123 +101,151 @@ func (r *Reader) readLine() ([]byte, error) {
 	}
 }
 
-func (r *Reader) readResp() error {
+func (r *Reader) readResp() (*RESP, error) {
 	typ, err := r.r.ReadByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	switch simbleType(typ) {
 	case BulkString:
-		err := r.readBulk()
-		return err
+		return r.readBulk()
 	case Array:
-		err := r.readArray()
-		return err
+		return r.readArray()
 	case ErrorType:
-		return nil
+		return r.readError()
 	case Integer:
-		err := r.readInt()
-		return err
+		return r.readInt()
+	case SimpleString:
+		return r.readSimpleString()
+	default:
+		return nil, invalidType
 	}
-
-	return invalidType
 }
 
-func (r *Reader) readInt() error {
+func (r *Reader) readInt() (*RESP, error) {
 	bytes, err := r.readLine()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	c, err := strconv.Atoi(string(bytes))
+	value, err := strconv.Atoi(string(bytes))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	r.resps = append(r.resps, &RESP{
+	resp := &RESP{
 		st:    Integer,
 		data:  bytes,
-		count: c,
-	})
-	return nil
+		count: value,
+	}
+	return resp, nil
 }
 
-func (r *Reader) readArray() error {
+func (r *Reader) readArray() (*RESP, error) {
 	arLenByte, err := r.readLine()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	arLen, err := strconv.Atoi(string(arLenByte))
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	resp := &RESP{
+		st:    Array,
+		count: arLen,
+		array: make([]*RESP, arLen),
 	}
 
 	if arLen == -1 {
-		r.resps = append(r.resps, &RESP{
-			st:    Array,
-			data:  nil,
-			count: arLen,
-		})
-		return nil
+		r.resps = append(r.resps, resp)
+		return resp, nil
 	}
 
-	for range arLen {
-		err := r.readResp()
+	for i := 0; i < arLen; i++ {
+		itemResp, err := r.readResp()
 		if err != nil {
-			return err
+			return nil, err
 		}
+		resp.array[i] = itemResp
 	}
 
-	return nil
+	r.resps = append(r.resps, resp)
+	return resp, nil
 }
 
-func (r *Reader) readBulk() error {
+func (r *Reader) readBulk() (*RESP, error) {
 	b, err := r.readLine()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	bulkLen, err := strconv.Atoi(string(b))
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	resp := &RESP{
+		st:    BulkString,
+		count: bulkLen,
 	}
 
 	if bulkLen == -1 {
-		r.resps = append(r.resps, &RESP{
-			st:    BulkString,
-			data:  nil,
-			count: bulkLen,
-		})
-		return nil
+		r.resps = append(r.resps, resp)
+		return resp, nil
 	}
 
 	var bytes []byte
-
-	for range bulkLen {
+	for i := 0; i < bulkLen; i++ {
 		b, err := r.r.ReadByte()
 		if err != nil {
-			return err
+			return nil, err
 		}
-
 		bytes = append(bytes, b)
 	}
 
 	crlf := make([]byte, 2)
 	_, err = io.ReadFull(r.r, crlf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if crlf[0] != '\r' || crlf[1] != '\n' {
-		return fmt.Errorf("%v: %s", invalidResp, string(bytes))
+		return nil, fmt.Errorf("%v: %s", invalidResp, string(bytes))
 	}
 
-	r.resps = append(r.resps, &RESP{
-		st:    BulkString,
-		data:  bytes,
-		count: bulkLen,
-	})
+	resp.data = bytes
+	return resp, nil
+}
 
-	return nil
+func (r *Reader) readSimpleString() (*RESP, error) {
+	bytes, err := r.readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &RESP{
+		st:    SimpleString,
+		data:  bytes,
+		count: len(bytes),
+	}
+	r.resps = append(r.resps, resp)
+	return resp, nil
+}
+
+func (r *Reader) readError() (*RESP, error) {
+	bytes, err := r.readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &RESP{
+		st:    ErrorType,
+		data:  bytes,
+		count: len(bytes),
+	}
+	r.resps = append(r.resps, resp)
+	return resp, nil
 }
