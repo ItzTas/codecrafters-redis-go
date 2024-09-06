@@ -94,9 +94,31 @@ func (r *Reader) readResp() error {
 		return err
 	case ErrorType:
 		return nil
+	case Integer:
+		err := r.readInt()
+		return err
 	}
 
 	return invalidType
+}
+
+func (r *Reader) readInt() error {
+	bytes, err := r.readLine()
+	if err != nil {
+		return err
+	}
+
+	c, err := strconv.Atoi(string(bytes))
+	if err != nil {
+		return err
+	}
+
+	r.resps = append(r.resps, &RESP{
+		st:    Integer,
+		data:  bytes,
+		count: c,
+	})
+	return nil
 }
 
 func (r *Reader) readArray() error {
