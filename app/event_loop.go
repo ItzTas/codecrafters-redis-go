@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 )
 
 type EventLoop struct {
@@ -44,11 +45,39 @@ func (el *EventLoop) runRedis() {
 }
 
 func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn) {
-	for range msgs {
-		_, err := conn.Write([]byte("+PONG\r\n"))
+	for m := range msgs {
+
+		r := NewReader(m)
+
+		err := r.readResp()
 		if err != nil {
-			fmt.Println("Could not write to conection: ", err)
+			fmt.Println(err)
+			return
+		}
+
+		commandStr := r.getCommand()
+
+		commandStr = strings.ToLower(commandStr)
+
+		command, exists := getCommands()[commandStr]
+		if !exists {
+			err := respondWithError(conn, fmt.Sprintf("Comand: %s does not exist", commandStr))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
 			continue
 		}
+
+		args := r.getArgs()
+
+		toWir := command(args)
+
+		err = respondToClient(conn, toWir)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
 	}
 }
