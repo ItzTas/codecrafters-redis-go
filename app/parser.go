@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 type simbleType rune
@@ -35,11 +36,51 @@ func NewReader(payload []byte) *Reader {
 	}
 }
 
+func newResp(st simbleType, dat []byte, array ...*RESP) *RESP {
+	count := len(string(dat))
+	if len(array) != 0 {
+		count = len(array)
+	}
+
+	return &RESP{
+		st:    st,
+		data:  dat,
+		count: count,
+		array: array,
+	}
+}
+
+func newNilResp(st simbleType) *RESP {
+	return &RESP{
+		st:    st,
+		count: -1,
+	}
+}
+
+func stringToArrayOfBulkResp(s string) *RESP {
+	s = strings.Trim(s, " ")
+
+	datas := strings.Split(s, " ")
+
+	r := newResp(Array, nil)
+
+	for _, d := range datas {
+		r.appendArray(newResp(BulkString, []byte(d)))
+	}
+
+	return r
+}
+
 type RESP struct {
 	st    simbleType
 	data  []byte
 	count int
 	array []*RESP
+}
+
+func (r *RESP) appendArray(newRESP *RESP) {
+	r.array = append(r.array, newRESP)
+	r.count += 1
 }
 
 func (r *Reader) getCommand() string {

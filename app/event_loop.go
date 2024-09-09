@@ -12,6 +12,7 @@ type EventLoop struct {
 }
 
 func (el *EventLoop) runRedis() {
+	dat := newData()
 	for {
 		conn, err := el.l.Accept()
 		if err != nil {
@@ -21,7 +22,7 @@ func (el *EventLoop) runRedis() {
 
 		msgs := make(chan []byte)
 
-		go el.loopEvent(msgs, conn)
+		go el.loopEvent(msgs, conn, dat)
 		go func() {
 			for {
 				buffer := make([]byte, 2048)
@@ -44,7 +45,7 @@ func (el *EventLoop) runRedis() {
 	}
 }
 
-func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn) {
+func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn, dat *Data) {
 	for m := range msgs {
 
 		r := NewReader(m)
@@ -57,9 +58,9 @@ func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn) {
 
 		commandStr := r.getCommand()
 
-		commandStr = strings.ToLower(commandStr)
+		commandStrFormatted := strings.ToLower(commandStr)
 
-		command, exists := getCommands()[commandStr]
+		command, exists := dat.getCommands()[commandStrFormatted]
 		if !exists {
 			err := respondWithError(conn, fmt.Sprintf("Comand: %s does not exist", commandStr))
 			if err != nil {
