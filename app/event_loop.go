@@ -5,14 +5,15 @@ import (
 	"io"
 	"net"
 	"strings"
+	"time"
 )
 
 type EventLoop struct {
 	l net.Listener
 }
 
-func (el *EventLoop) runRedis() {
-	dat := newData()
+func (el *EventLoop) runRedis(reapInterval time.Duration) {
+	dat := newData(reapInterval)
 	for {
 		conn, err := el.l.Accept()
 		if err != nil {

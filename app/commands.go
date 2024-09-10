@@ -2,23 +2,14 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"sync"
+	"strconv"
+	"time"
 )
 
-type Data struct {
-	mu   *sync.RWMutex
-	sets map[string][]byte
-}
-
-func newData() *Data {
-	return &Data{
-		mu:   &sync.RWMutex{},
-		sets: make(map[string][]byte),
-	}
-}
-
-var invalidArgsNum = errors.New("invalid number of arguments")
+var (
+	invalidArgsNum = errors.New("invalid number of arguments")
+	invalidArg     = errors.New("invalid arg")
+)
 
 type commandType func([]*RESP) ([]*RESP, error)
 
@@ -49,22 +40,55 @@ func echoCommand(args []*RESP) ([]*RESP, error) {
 }
 
 func (d *Data) setCommand(args []*RESP) ([]*RESP, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("%v: want: <key> <value>", invalidArgsNum)
+	setAtgs, err := parseSetArgs(args)
+	if err != nil {
+		return []*RESP{}, err
 	}
 
 	set := string(args[0].data)
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	d.sets[set] = args[1].data
+	d.setSetData(set, args[1].data, setAtgs)
 
 	toRet := []*RESP{
 		newResp(SimpleString, []byte("OK")),
 	}
 
 	return toRet, nil
+}
+
+func parseSetArgs(args []*RESP) (SetArgs, error) {
+	var setArgs SetArgs
+	for i, arg := range args {
+		if string(arg.data) == "px" {
+			if i+1 == len(args) {
+				return SetArgs{}, invalidArgsNum
+			}
+
+			pxInt, err := strconv.Atoi(string(args[i+1].data))
+			if err != nil {
+				return SetArgs{}, err
+			}
+
+			setArgs.expiry = time.Duration(pxInt) * time.Millisecond
+			continue
+		}
+
+		if string(arg.data) == "ex" {
+			if i+1 == len(args) {
+				return SetArgs{}, invalidArgsNum
+			}
+
+			pxInt, err := strconv.Atoi(string(args[i+1].data))
+			if err != nil {
+				return SetArgs{}, err
+			}
+
+			setArgs.expiry = time.Duration(pxInt) * time.Second
+			continue
+
+		}
+	}
+	return setArgs, nil
 }
 
 func (d *Data) getCommand(args []*RESP) ([]*RESP, error) {
@@ -77,7 +101,7 @@ func (d *Data) getCommand(args []*RESP) ([]*RESP, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	v, exists := d.sets[string(toGet)]
+	v, exists := d.getSetData(string(toGet))
 	if !exists {
 		return []*RESP{newNilResp(BulkString)}, nil
 	}

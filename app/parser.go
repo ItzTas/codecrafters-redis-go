@@ -80,7 +80,7 @@ type RESP struct {
 
 func (r *RESP) appendArray(newRESP *RESP) {
 	r.array = append(r.array, newRESP)
-	r.count += 1
+	r.count += len(r.array)
 }
 
 func (r *Reader) getCommand() string {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"time"
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 		l: l,
 	}
 
-	el.runRedis()
+	el.runRedis(5 * time.Second)
 }
 
 func closeIt(c io.Closer, msg ...string) {
