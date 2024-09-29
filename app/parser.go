@@ -78,9 +78,26 @@ type RESP struct {
 	array []*RESP
 }
 
+func (r *RESP) Print() {
+	fmt.Println("RESP:")
+	fmt.Printf("  Type: %v\n", r.st)
+	fmt.Printf("  Data: %s\n", r.data)
+	fmt.Printf("  Count: %d\n", r.count)
+
+	if len(r.array) > 0 {
+		fmt.Println("  Array:")
+		for i, resp := range r.array {
+			fmt.Printf("    [%d]: %s\n", i, resp.data)
+		}
+		for _, resp := range r.array {
+			resp.Print()
+		}
+	}
+}
+
 func (r *RESP) appendArray(newRESP *RESP) {
 	r.array = append(r.array, newRESP)
-	r.count += len(r.array)
+	r.count = len(r.array)
 }
 
 func (r *Reader) getCommand() string {

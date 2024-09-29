@@ -42,9 +42,6 @@ func respondWithError(conn net.Conn, message string) error {
 func respondToClient(conn net.Conn, payload []*RESP) error {
 	var psMarshaled string
 	for _, p := range payload {
-		if p.st == Array {
-			psMarshaled += fmt.Sprintf("*%d\r\n%s", p.count, psMarshaled)
-		}
 		s, err := p.marshal()
 		if err != nil {
 			return err

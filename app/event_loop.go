@@ -5,17 +5,15 @@ import (
 	"io"
 	"net"
 	"strings"
-	"time"
 )
 
 type EventLoop struct {
 	l net.Listener
 }
 
-func (el *EventLoop) runRedis(reapInterval time.Duration) {
-	dat := newData(reapInterval)
+func (cfg *Config) runRedis() {
 	for {
-		conn, err := el.l.Accept()
+		conn, err := cfg.el.l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting conection: ", err)
 			return
@@ -23,7 +21,7 @@ func (el *EventLoop) runRedis(reapInterval time.Duration) {
 
 		msgs := make(chan []byte)
 
-		go el.loopEvent(msgs, conn, dat)
+		go cfg.loopEvent(msgs, conn)
 		go func() {
 			for {
 				buffer := make([]byte, 2048)
@@ -46,7 +44,7 @@ func (el *EventLoop) runRedis(reapInterval time.Duration) {
 	}
 }
 
-func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn, dat *Data) {
+func (cfg *Config) loopEvent(msgs <-chan []byte, conn net.Conn) {
 	for m := range msgs {
 
 		r := NewReader(m)
@@ -61,7 +59,7 @@ func (el *EventLoop) loopEvent(msgs <-chan []byte, conn net.Conn, dat *Data) {
 
 		commandStrFormatted := strings.ToLower(commandStr)
 
-		command, exists := dat.getCommands()[commandStrFormatted]
+		command, exists := cfg.getCommands()[commandStrFormatted]
 		if !exists {
 			err := respondWithError(conn, fmt.Sprintf("Comand: %s does not exist", commandStr))
 			if err != nil {

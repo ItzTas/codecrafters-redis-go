@@ -18,11 +18,9 @@ func main() {
 	}
 	defer closeIt(l)
 
-	el := &EventLoop{
-		l: l,
-	}
+	cfg := NewConfig(l, 1*time.Second)
 
-	el.runRedis(5 * time.Second)
+	cfg.runRedis()
 }
 
 func closeIt(c io.Closer, msg ...string) {

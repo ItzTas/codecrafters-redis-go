@@ -2,7 +2,9 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -13,12 +15,34 @@ var (
 
 type commandType func([]*RESP) ([]*RESP, error)
 
-func (dat *Data) getCommands() map[string]commandType {
+func (cfg *Config) getCommands() map[string]commandType {
 	return map[string]commandType{
-		"echo": echoCommand,
-		"ping": pingCommand,
-		"set":  dat.setCommand,
-		"get":  dat.getCommand,
+		"echo":   echoCommand,
+		"ping":   pingCommand,
+		"set":    cfg.setCommand,
+		"get":    cfg.getCommand,
+		"config": cfg.executeConfigCommands,
+	}
+}
+
+func (cfg *Config) executeConfigCommands(args []*RESP) ([]*RESP, error) {
+	if len(args) == 0 {
+		return []*RESP{}, fmt.Errorf("%v: want CONFIG + command", invalidArgsNum)
+	}
+	commandStr := string(args[0].data)
+	commandStr = strings.ToLower(commandStr)
+	command, exists := cfg.getConfigCommands()[commandStr]
+	if !exists {
+		return []*RESP{}, fmt.Errorf("%v: %s does not exist", invalidArg, commandStr)
+	}
+
+	return command(args[1:])
+}
+
+func (cfg *Config) getConfigCommands() map[string]commandType {
+	return map[string]commandType{
+		"get": cfg.dbCfg.getCommand,
+		// "set": cfg.configSetCommand,
 	}
 }
 
@@ -39,15 +63,19 @@ func echoCommand(args []*RESP) ([]*RESP, error) {
 	}, nil
 }
 
-func (d *Data) setCommand(args []*RESP) ([]*RESP, error) {
+func (cfg *Config) setCommand(args []*RESP) ([]*RESP, error) {
 	setAtgs, err := parseSetArgs(args)
 	if err != nil {
 		return []*RESP{}, err
 	}
 
+	if len(args) == 0 {
+		return []*RESP{}, invalidArgsNum
+	}
+
 	set := string(args[0].data)
 
-	d.setSetData(set, args[1].data, setAtgs)
+	cfg.data.setSetData(set, args[1].data, setAtgs)
 
 	toRet := []*RESP{
 		newResp(SimpleString, []byte("OK")),
@@ -91,17 +119,14 @@ func parseSetArgs(args []*RESP) (SetArgs, error) {
 	return setArgs, nil
 }
 
-func (d *Data) getCommand(args []*RESP) ([]*RESP, error) {
+func (cfg *Config) getCommand(args []*RESP) ([]*RESP, error) {
 	if len(args) != 1 {
 		return nil, invalidArgsNum
 	}
 
 	toGet := args[0].data
 
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	v, exists := d.getSetData(string(toGet))
+	v, exists := cfg.data.getSetData(string(toGet))
 	if !exists {
 		return []*RESP{newNilResp(BulkString)}, nil
 	}
