@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func (dbCfg *DBConfig) getCommand(args []*RESP) ([]*RESP, error) {
 	if len(args) != 1 {

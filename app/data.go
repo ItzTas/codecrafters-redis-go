@@ -94,7 +94,6 @@ func (se *SetEntry) isExpired() bool {
 }
 
 func (d *Data) setSetData(key string, value []byte, setArgs SetArgs) {
-
 	entry := &SetEntry{
 		key:       key,
 		data:      value,

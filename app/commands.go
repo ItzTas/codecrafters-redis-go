@@ -22,6 +22,7 @@ func (cfg *Config) getCommands() map[string]commandType {
 		"set":    cfg.setCommand,
 		"get":    cfg.getCommand,
 		"config": cfg.executeConfigCommands,
+		"keys":   cfg.keysCommand,
 	}
 }
 
