@@ -14,14 +14,26 @@ type RDBKeyValue struct {
 	flag  string
 }
 
+func getValFromKeys(rdbs []RDBKeyValue, key string) (string, bool) {
+	for _, kv := range rdbs {
+		if kv.key == key {
+			return kv.value, true
+		}
+	}
+	return "", false
+}
+
 type RDBReader struct {
-	file *os.File
+	file   *os.File
+	noFile bool
 }
 
 func newRDBReader(path string) (*RDBReader, error) {
+	noFile := false
 	file, err := os.OpenFile(path, os.O_RDONLY|os.O_CREATE, 0777)
 	if err != nil {
 		fmt.Println("Could not create file: ", path)
+		noFile = true
 	}
 	cmd := exec.Command("hexdump", "-C", path)
 	out, err := cmd.Output()
@@ -29,10 +41,13 @@ func newRDBReader(path string) (*RDBReader, error) {
 		fmt.Println("Error in hexdump: " + err.Error())
 	}
 	fmt.Println("file created by codecrafters: " + string(out))
-	return &RDBReader{file: file}, nil
+	return &RDBReader{file: file, noFile: noFile}, nil
 }
 
 func (r *RDBReader) readDatabase() ([]RDBKeyValue, error) {
+	if r.noFile {
+		return nil, nil
+	}
 	keyValues := []RDBKeyValue{}
 
 	for {

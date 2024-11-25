@@ -119,20 +119,3 @@ func parseSetArgs(args []*RESP) (SetArgs, error) {
 	}
 	return setArgs, nil
 }
-
-func (cfg *Config) getCommand(args []*RESP) ([]*RESP, error) {
-	if len(args) != 1 {
-		return nil, invalidArgsNum
-	}
-
-	toGet := args[0].data
-
-	v, exists := cfg.data.getSetData(string(toGet))
-	if !exists {
-		return []*RESP{newNilResp(BulkString)}, nil
-	}
-
-	return []*RESP{
-		newResp(BulkString, v),
-	}, nil
-}
