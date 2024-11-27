@@ -24,6 +24,7 @@ func (cfg *Config) getCommand(args []*RESP) ([]*RESP, error) {
 
 	v, exists := cfg.data.getSetData(string(toGet))
 	if !exists {
+		// return []*RESP{newNilResp(BulkString)}, nil
 		return cfg.getCommandDB(string(toGet))
 	}
 

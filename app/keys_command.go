@@ -5,6 +5,9 @@ func (cfg *Config) keysCommand(args []*RESP) ([]*RESP, error) {
 		return []*RESP{}, invalidArg
 	}
 
+	if cfg.dbReader.noFile {
+		return []*RESP{newNilResp(BulkString)}, nil
+	}
 	keys, err := cfg.dbReader.readDatabase()
 	if err != nil {
 		return []*RESP{}, err
