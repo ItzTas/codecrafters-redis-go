@@ -19,6 +19,6 @@ func (cfg *Config) keysCommand(args []*RESP) ([]*RESP, error) {
 		result += " " + key.key
 	}
 
-	res := stringToArrayOfBulkResp(keys[0].key)
+	res := stringToArrayOfBulkResp(result)
 	return []*RESP{res}, nil
 }
