@@ -85,6 +85,13 @@ func newRDBReader(path string) (*RDBReader, error) {
 	return &RDBReader{file: file, noFile: noFile}, nil
 }
 
+func (r *RDBReader) resetFile() {
+	_, err := r.file.Seek(0, 0)
+	if err != nil {
+		return
+	}
+}
+
 func (r *RDBReader) readTillfe() error {
 	buf := make([]byte, 1)
 	for {
@@ -187,24 +194,32 @@ func (r *RDBReader) readFB() ([]RDBKeyValue, error) {
 }
 
 func (r *RDBReader) readString(sizeIndian int) ([]RDBKeyValue, error) {
-	fmt.Printf("Reading string of size: %d\n", sizeIndian)
+	fmt.Printf("Reading strings of size: %d\n", sizeIndian)
+	fmt.Println()
 
 	var keyvals []RDBKeyValue
 
-	for range sizeIndian {
-		bufKeySize := make([]byte, 1)
+	for i := 0; i < sizeIndian; i++ {
 
+		bufKeySize := make([]byte, 1)
 		_, err := r.file.Read(bufKeySize)
 		if err != nil {
-			return []RDBKeyValue{}, err
+			return nil, err
+		}
+
+		if bufKeySize[0] == 0x00 {
+			fmt.Println("String flag found inside loop")
+			sizeIndian += 1
+			continue
 		}
 
 		keySize := int(bufKeySize[0])
 
 		if keySize == 0 {
+
 			_, err := r.file.Read(bufKeySize)
 			if err != nil {
-				return []RDBKeyValue{}, err
+				return nil, err
 			}
 			keySize = int(bufKeySize[0])
 		}
@@ -214,28 +229,29 @@ func (r *RDBReader) readString(sizeIndian int) ([]RDBKeyValue, error) {
 		buf := make([]byte, keySize)
 		_, err = r.file.Read(buf)
 		if err != nil {
-			return []RDBKeyValue{}, err
+			return nil, err
 		}
-
 		key := string(buf)
-		fmt.Println("Key: ", key)
 
 		valueSizeBuf := make([]byte, 1)
 		_, err = r.file.Read(valueSizeBuf)
 		if err != nil {
-			return []RDBKeyValue{}, err
+			return nil, err
 		}
 
 		valueSize := int(valueSizeBuf[0])
 		fmt.Println("Value size: ", valueSize)
+
 		bufValue := make([]byte, valueSize)
 		_, err = r.file.Read(bufValue)
 		if err != nil {
-			return []RDBKeyValue{}, err
+			return nil, err
 		}
-
 		value := string(bufValue)
+
+		fmt.Println("Key: ", key)
 		fmt.Println("Value: ", value)
+		fmt.Println()
 
 		keyValue := RDBKeyValue{
 			key:   key,

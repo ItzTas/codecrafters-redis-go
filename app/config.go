@@ -12,6 +12,20 @@ type Config struct {
 	dbReader *RDBReader
 }
 
+func (cfg *Config) readDatabase() {
+	data, err := cfg.dbReader.readDatabase()
+	if err != nil {
+		return
+	}
+	for _, d := range data {
+		key := d.key
+		value := d.value
+		cfg.data.setSetData(key, []byte(value), SetArgs{})
+	}
+
+	cfg.dbReader.resetFile()
+}
+
 func NewConfig(l net.Listener, reapInterval time.Duration) *Config {
 	dbCfg := GetInitialDBConfig()
 	filepath := dbCfg.configs["dir"] + "/" + dbCfg.configs["dbfilename"]
@@ -20,7 +34,7 @@ func NewConfig(l net.Listener, reapInterval time.Duration) *Config {
 		panic(err)
 	}
 
-	return &Config{
+	cfg := &Config{
 		el: &EventLoop{
 			l: l,
 		},
@@ -28,4 +42,7 @@ func NewConfig(l net.Listener, reapInterval time.Duration) *Config {
 		data:     newData(reapInterval),
 		dbReader: rdbReader,
 	}
+
+	cfg.readDatabase()
+	return cfg
 }
